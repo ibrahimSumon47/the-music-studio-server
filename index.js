@@ -71,8 +71,20 @@ async function run() {
       next();
     };
 
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      if (user?.role !== "instructor") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
     // Users Api
-    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin,verifyInstructor, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -102,7 +114,21 @@ async function run() {
       res.send(result);
     });
 
-    // Instructor
+    //! Instructor
+
+    app.get("/users/instructor/:email", verifyJWT, verifyInstructor, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ instructor: false });
+      }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const result = { instructor: user?.role === "instructor" };
+      res.send(result);
+    });
+
     app.patch("/users/instructor/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -142,7 +168,7 @@ async function run() {
 
     // Add a course
 
-    app.post("/allToys", async (req, res) => {
+    app.post("/course", async (req, res) => {
       const course = req.body;
       const result = await courseCollection.insertOne(course);
       res.send(result);
