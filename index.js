@@ -73,8 +73,10 @@ async function run() {
 
     const verifyInstructor = async (req, res, next) => {
       const email = req.decoded.email;
+      console.log(email);
       const query = { email: email };
       const user = await userCollection.findOne(query);
+      console.log(user);
       if (user?.role !== "instructor") {
         return res
           .status(403)
@@ -84,7 +86,7 @@ async function run() {
     };
 
     // Users Api
-    app.get("/users", verifyJWT, verifyAdmin,verifyInstructor, async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -160,19 +162,56 @@ async function run() {
       res.send(result);
     });
 
-    // Course
+    //! Course
     app.get("/courses", async (req, res) => {
-      const result = await courseCollection.find().toArray();
-      res.send(result);
+      const nonPendingCourses = await courseCollection.find({status:{$ne:"pending"}}).toArray();
+      res.send(nonPendingCourses);
     });
+
+    // Pending Course
+
+    app.get("/courses/pending", verifyJWT, verifyAdmin, async(req, res)=>{
+      const pendingCourse = await courseCollection.find({status:"pending"}).toArray()
+      res.send(pendingCourse)
+    })
 
     // Add a course
 
-    app.post("/course", async (req, res) => {
+    app.post("/course", verifyJWT, verifyInstructor, async (req, res) => {
       const course = req.body;
+      course.status = "pending"
       const result = await courseCollection.insertOne(course);
       res.send(result);
     });
+
+    // Approved
+
+    app.patch("/courses/approve/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: "approved",
+        },
+      };
+      const result = await courseCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    
+    // Rejected
+
+    app.patch("/courses/reject/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: "rejected",
+        },
+      };
+      const result = await courseCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
