@@ -21,6 +21,7 @@ const verifyJWT = (req, res, next) => {
 
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
     if (err) {
+      console.log(err);
       return res
         .status(401)
         .send({ error: true, message: "unauthorized access" });
@@ -56,7 +57,7 @@ async function run() {
     });
 
     // Users Api
-    app.get("/users", async (req, res) => {
+    app.get("/users",verifyJWT, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -73,7 +74,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/users", async (req, res) => {
+    app.post("/users",  async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
