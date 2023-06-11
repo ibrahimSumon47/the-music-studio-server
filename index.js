@@ -280,6 +280,14 @@ async function run() {
       res.send({ insertResult, deleteResult });
     });
 
+    // Payment History
+    app.get("/enrolled", verifyJWT, async (req, res) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const enrolledCourses = await paymentCollection.find(query).toArray();
+      res.send(enrolledCourses);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
