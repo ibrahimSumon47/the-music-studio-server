@@ -12,6 +12,7 @@ app.use(express.json());
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
+  console.log("screen JWT",authorization);
   if (!authorization) {
     return res
       .status(401)
@@ -118,7 +119,7 @@ async function run() {
 
     //! Instructor
 
-    app.get("/users/instructor/:email", verifyJWT, verifyInstructor, async (req, res) => {
+    app.get("/users/instructor/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
