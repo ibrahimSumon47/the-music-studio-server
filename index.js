@@ -12,7 +12,6 @@ app.use(express.json());
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
-  console.log("screen JWT",authorization);
   if (!authorization) {
     return res
       .status(401)
@@ -176,6 +175,13 @@ async function run() {
       res.send(pendingCourse)
     })
 
+    // Approved Course
+
+    app.get("/courses/approved", verifyJWT, async(req, res)=>{
+      const approvedCourse = await courseCollection.find({status:"approved"}).toArray()
+      res.send(approvedCourse)
+    })
+
     // Add a course
 
     app.post("/course", verifyJWT, verifyInstructor, async (req, res) => {
@@ -192,7 +198,7 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
-          status: "approved",
+          status: req.body.status,
         },
       };
       const result = await courseCollection.updateOne(filter, updateDoc);
@@ -201,17 +207,7 @@ async function run() {
     
     // Rejected
 
-    app.patch("/courses/reject/:id", verifyJWT, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: {
-          status: "rejected",
-        },
-      };
-      const result = await courseCollection.updateOne(filter, updateDoc);
-      res.send(result);
-    });
+    
     
 
     // Send a ping to confirm a successful connection
