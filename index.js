@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 5000;
 
@@ -50,6 +51,8 @@ async function run() {
 
     const userCollection = client.db("musicStudio").collection("users");
     const courseCollection = client.db("musicStudio").collection("courses");
+    const cartCollection = client.db("musicStudio").collection("carts");
+    const paymentCollection = client.db("musicStudio").collection("payments");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -164,51 +167,118 @@ async function run() {
 
     //! Course
     app.get("/courses", async (req, res) => {
-      const nonPendingCourses = await courseCollection.find({status:{$ne:"pending"}}).toArray();
+      const nonPendingCourses = await courseCollection
+        .find({ status: { $ne: "pending" } })
+        .toArray();
       res.send(nonPendingCourses);
     });
 
     // Pending Course
 
-    app.get("/courses/pending", verifyJWT, verifyAdmin, async(req, res)=>{
-      const pendingCourse = await courseCollection.find({status:"pending"}).toArray()
-      res.send(pendingCourse)
-    })
+    app.get("/courses/pending", verifyJWT, verifyAdmin, async (req, res) => {
+      const pendingCourse = await courseCollection
+        .find({ status: "pending" })
+        .toArray();
+      res.send(pendingCourse);
+    });
 
     // Approved Course
 
-    app.get("/courses/approved", verifyJWT, async(req, res)=>{
-      const approvedCourse = await courseCollection.find({status:"approved"}).toArray()
-      res.send(approvedCourse)
-    })
+    app.get("/courses/approved", async (req, res) => {
+      const approvedCourse = await courseCollection
+        .find({ status: "approved" })
+        .toArray();
+      res.send(approvedCourse);
+    });
 
     // Add a course
 
     app.post("/course", verifyJWT, verifyInstructor, async (req, res) => {
       const course = req.body;
-      course.status = "pending"
+      course.status = "pending";
       const result = await courseCollection.insertOne(course);
       res.send(result);
     });
 
     // Approved
 
-    app.patch("/courses/approve/:id", verifyJWT, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: {
-          status: req.body.status,
-        },
-      };
-      const result = await courseCollection.updateOne(filter, updateDoc);
+    app.patch(
+      "/courses/approve/:id",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            status: req.body.status,
+          },
+        };
+        const result = await courseCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      }
+    );
+
+    //! Cart
+
+    app.get("/carts", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const query = { email: email };
+      const result = await cartCollection.find(query).toArray();
       res.send(result);
     });
-    
-    // Rejected
 
-    
-    
+    app.post("/carts", async (req, res) => {
+      const item = req.body;
+      const result = await cartCollection.insertOne(item);
+      res.send(result);
+    });
+
+    app.delete("/carts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    //! Payment
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = {
+        _id: { $in: payment.course.map((id) => new ObjectId(id)) },
+      };
+      const deleteResult = await cartCollection.deleteMany(query);
+
+      res.send({ insertResult, deleteResult });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
