@@ -94,6 +94,13 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/users/instructor", async (req, res) => {
+      const instructors = await userCollection
+        .find({ role: "instructor" })
+        .toArray();
+      res.send(instructors);
+    });
+
     app.get("/users/admin/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
 
@@ -170,7 +177,28 @@ async function run() {
       const nonPendingCourses = await courseCollection
         .find({ status: { $ne: "pending" } })
         .toArray();
-      res.send(nonPendingCourses);
+      const enrolledCourses = await cartCollection
+        .aggregate([{ $group: { _id: "$courseId", count: { $sum: 1 } } }])
+        .toArray();
+      const coursesWithEnrollment = nonPendingCourses.map((course) => {
+        const enrollment = enrolledCourses.find(
+          (e) => e._id.toString() === course._id.toString()
+        );
+        return {
+          ...course,
+          enrollmentCount: enrollment ? enrollment.count : 0,
+        };
+      });
+      res.send(coursesWithEnrollment);
+    });
+
+    app.get("/courses/instructor", async (req, res) => {
+      let query = {};
+      if (req.query?.email) {
+        query = { instructorEmail: req.query.email };
+      }
+      const result = await courseCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Pending Course
