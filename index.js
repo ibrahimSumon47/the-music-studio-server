@@ -47,7 +47,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db("musicStudio").collection("users");
     const courseCollection = client.db("musicStudio").collection("courses");
@@ -76,7 +76,6 @@ async function run() {
 
     const verifyInstructor = async (req, res, next) => {
       const email = req.decoded.email;
-      console.log(email);
       const query = { email: email };
       const user = await userCollection.findOne(query);
       console.log(user);
@@ -230,22 +229,30 @@ async function run() {
 
     // Approved
 
-    app.patch(
-      "/courses/approve/:id",
-      verifyJWT,
-      verifyAdmin,
-      async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: {
-            status: req.body.status,
-          },
-        };
-        const result = await courseCollection.updateOne(filter, updateDoc);
-        res.send(result);
-      }
-    );
+    // app.patch("/courses/approve/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updateDoc = {
+    //     $set: {
+    //       status: req.body.status,
+    //     },
+    //   };
+    //   const result = await courseCollection.updateOne(filter, updateDoc);
+    //   res.send(result);
+    // });
+
+    app.patch("/courses/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: req.body.status,
+        },
+      };
+      const result = await courseCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
 
     //! Cart
 
