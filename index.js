@@ -312,7 +312,12 @@ async function run() {
       };
       const deleteResult = await cartCollection.deleteMany(query);
 
-      res.send({ insertResult, deleteResult });
+      const updateResult = await courseCollection.updateOne(
+        { _id: new ObjectId(payment.course[0]) },
+        { $inc: { seats: -1, enrolled: 1 } }
+      );
+
+      res.send({ insertResult, deleteResult, updateResult });
     });
 
     // Payment History
