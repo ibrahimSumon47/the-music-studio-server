@@ -53,6 +53,7 @@ async function run() {
     const courseCollection = client.db("musicStudio").collection("courses");
     const cartCollection = client.db("musicStudio").collection("carts");
     const paymentCollection = client.db("musicStudio").collection("payments");
+    const reviewCollection = client.db("musicStudio").collection("reviews");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -227,6 +228,12 @@ async function run() {
       res.send(result);
     });
 
+    //! Reviews
+    app.get("/reviews", async (req, res) => {
+      const review = await reviewCollection.find().toArray();
+      res.send(review);
+    });
+
     // Approved
 
     // app.patch("/courses/approve/:id", async (req, res) => {
@@ -313,11 +320,19 @@ async function run() {
       const deleteResult = await cartCollection.deleteMany(query);
 
       const updateResult = await courseCollection.updateOne(
-        { _id: new ObjectId(payment.course[0]) },
+        { _id: new ObjectId(payment.course[0]), seats: { $gt: 0 } },
         { $inc: { seats: -1, enrolled: 1 } }
       );
 
-      res.send({ insertResult, deleteResult, updateResult });
+      if (updateResult.matchedCount > 0) {
+        // Seats were available and updated successfully
+        console.log("Seats updated successfully");
+        res.status(200).send({ insertResult, deleteResult, updateResult });
+      } else {
+        // No seats available
+        console.log("No seats available for this course");
+        res.status(400).send({ error: true, message: "No seats available" });
+      }
     });
 
     // Payment History
