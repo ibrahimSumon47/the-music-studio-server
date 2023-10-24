@@ -2,6 +2,8 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const bodyParser = require('body-parser');
 require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -10,6 +12,41 @@ const port = process.env.PORT || 5000;
 // middleware
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
+
+app.post("/subscribe-email", (req, res) => {
+  const { email } = req.body;
+
+  // Configure your email transporter
+  const transporter = nodemailer.createTransport({
+    service: "Gmail", // e.g., 'Gmail'
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS,
+    },
+    tls:{
+      rejectUnauthorized: false
+    }
+  });
+
+  // Email data
+  const mailOptions = {
+    from: 'The Music Studio',
+    to: email,
+    subject: 'Thank You for Subscribing',
+    text: 'Thank you for subscribing to our newsletter!',
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Email sending failed:", error);
+      res.status(500).json({ message: "Failed to send thank you email" });
+    } else {
+      console.log("Email sent:", info.response);
+      res.json({ message: "Subscription successful" });
+    }
+  });
+});
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
